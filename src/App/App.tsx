@@ -1,4 +1,5 @@
 import React, {createRef} from 'react';
+import {Subscription} from 'rxjs';
 import styled from 'styled-components';
 import photoService from '../photoService';
 import AppError from './cmp/AppError';
@@ -11,6 +12,7 @@ interface AppState {
   photos: Photo[];
   failed: boolean;
   loading: boolean;
+  parentWidth: number;
 }
 
 const FillHeight = styled.div`
@@ -22,7 +24,7 @@ const FlexCenter = styled.div`
 display: flex;
 padding: 1rem;
 justify-content: center;
-`
+`;
 
 class App extends React.Component<unknown, AppState> {
   state = {
@@ -30,9 +32,12 @@ class App extends React.Component<unknown, AppState> {
     error: null,
     photos: [],
     loading: false,
+    parentWidth: null,
+
   };
 
   readonly container = createRef<HTMLDivElement>();
+  private subscription: Subscription;
 
   infiniteScroll = (): void => {
     if (null == this.container || null == this.container.current) {
@@ -54,6 +59,12 @@ class App extends React.Component<unknown, AppState> {
     this.infiniteScroll();
   }
 
+  componentWillUnmount() {
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
+  }
+
   render() {
     const {error, failed, loading, photos} = this.state;
 
@@ -66,9 +77,9 @@ class App extends React.Component<unknown, AppState> {
         <FlexCenter>
           <h1>this is not an actual gallery..</h1>
         </FlexCenter>
-        {photos?.length ?
-          <Grid parentWidth={this.container.current?.clientWidth} factor={300} items={photos}
-                child={Photo}/> : null}
+        {photos?.length
+          ? <Grid parent={this.container} factor={380} items={photos} child={Photo}/>
+          : null}
         {loading ? <Loading/> : null}
       </FillHeight>
     );

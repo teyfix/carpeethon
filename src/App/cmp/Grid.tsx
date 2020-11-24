@@ -1,5 +1,8 @@
-import React from 'react';
+import React, {RefObject} from 'react';
+import {Subscription} from 'rxjs';
+import {debounceTime, pluck} from 'rxjs/operators';
 import styled from 'styled-components';
+import watchResize from '../../helper/watchResize';
 
 type Cls<T> = new () => T;
 type GridItem<T extends Item = Item> = React.FC<GridItemProps<T>> | Cls<React.Component<GridItemProps<T>>>;
@@ -8,8 +11,13 @@ interface GridProps<T extends Item = Item> {
   items: T[];
   factor: number;
   child: GridItem<T>;
-  parentWidth: number;
+  parent: RefObject<HTMLElement>;
 }
+
+interface GridState {
+  width: number;
+}
+
 
 interface GridItemProps<T extends Item = Item> {
   item: T;
@@ -34,31 +42,37 @@ const ChildWrapper = styled.div`
 }
 `;
 
-class Grid<T extends Item = Item> extends React.Component<GridProps<T>, { columns: number; }> {
-  state = {
-    columns: this.calculateColumns(),
-  };
+class Grid<T extends Item = Item> extends React.Component<GridProps<T>, GridState> {
+  state = {width: 0};
+
+  private subscription: Subscription;
 
   componentDidMount() {
-    this.tick();
-    window.addEventListener('resize', this.tick);
-  }
-
-  componentDidUpdate() {
-    this.tick();
+    this.subscribe();
   }
 
   componentWillUnmount() {
-    window.removeEventListener('resize', this.tick);
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
   }
 
   render() {
-    if (null == this.props.parentWidth) {
+    const {props: {items}, state: {width}} = this;
+
+    if (!items || !items.length || !width) {
       return null;
     }
 
-    const {items, child: Child} = this.props;
-    const {columns} = this.state;
+    const {factor, child: Child} = this.props;
+    const {min, max, floor} = Math;
+    const columns = max(
+      1,
+      min(
+        items.length,
+        floor(width / factor),
+      ),
+    );
 
     return <Flex>{
       Array.from({length: columns}).map((_, i) => {
@@ -77,21 +91,19 @@ class Grid<T extends Item = Item> extends React.Component<GridProps<T>, { column
     }</Flex>;
   }
 
-  private tick = (): void => {
-    const columns = this.calculateColumns();
+  private subscribe() {
+    const {parent} = this.props;
 
-    if (columns === this.state.columns) {
+    if (this.subscription || !parent || !parent.current) {
       return;
     }
 
-    this.setState({columns});
-  };
-
-  private calculateColumns(): number {
-    return Math.min(
-      this.props.items.length,
-      Math.floor(this.props.parentWidth / this.props.factor),
-    );
+    this.subscription = watchResize(parent.current).pipe(
+      pluck('width'),
+      debounceTime(50),
+    ).subscribe((width) => {
+      this.setState({width});
+    });
   }
 }
 

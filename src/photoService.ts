@@ -15,7 +15,7 @@ class PhotoService {
 
   async list(): Promise<Photo[]> {
     return Promise.all(
-      random(10, 30, this.get, this),
+      random(7, 15, this.get, this),
     );
   }
 }
